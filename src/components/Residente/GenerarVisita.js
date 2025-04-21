@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,16 @@ import {
   StyleSheet,
   ScrollView,
   Modal,
-  Platform,
   SafeAreaView
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
+import { UserContext } from '../../context/userContext';
 
 export default function GenerarVisita() {
   const navigation = useNavigation();
+  const { user } = useContext(UserContext);
 
   const [visitData, setVisitData] = useState({
     fecha: '',
@@ -30,20 +31,79 @@ export default function GenerarVisita() {
     visitante: ''
   });
 
+  const [errors, setErrors] = useState({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
 
+  useEffect(() => {
+    if (user && user.house_id && user.house_id.address) {
+      const { address } = user.house_id;  // Suponemos que la casa tiene la estructura correcta
+      setVisitData(prev => ({
+        ...prev,
+        unidad: `${address.street}, ${address.city}, ${address.zip}`, // Concatenamos la dirección
+      }));
+    } else {
+      // Si no se encuentra la casa, asigna un valor predeterminado
+      setVisitData(prev => ({
+        ...prev,
+        unidad: 'No disponible', // No disponible si no hay datos de casa
+      }));
+    }
+  }, [user]);
+  
+
   const handleChange = (field, value) => {
     setVisitData(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => ({ ...prev, [field]: null }));
+  };
+
+  const validarFormulario = () => {
+    const newErrors = {};
+    const {
+      fecha, hora, personas, descripcion, tipo,
+      unidad, visitante, contrasena, verificarContrasena
+    } = visitData;
+
+    if (!fecha) newErrors.fecha = 'Selecciona una fecha válida.';
+    if (!hora) newErrors.hora = 'Selecciona una hora válida.';
+    if (!personas || isNaN(personas) || parseInt(personas) <= 0)
+      newErrors.personas = 'Debe ser un número mayor a 0.';
+    if (!descripcion) newErrors.descripcion = 'Escribe una descripción.';
+    if (!tipo) newErrors.tipo = 'Selecciona el tipo de visita.';
+    if (!unidad || unidad === 'No disponible') newErrors.unidad = 'No se encontró tu dirección.';
+    if (!visitante) newErrors.visitante = 'Escribe el nombre del visitante.';
+    if (!contrasena || contrasena.length < 6)
+      newErrors.contrasena = 'Mínimo 6 caracteres.';
+    if (contrasena !== verificarContrasena)
+      newErrors.verificarContrasena = 'Las contraseñas no coinciden.';
+
+    if (fecha && hora) {
+      const fechaHora = new Date(`${fecha} ${hora}`);
+      if (fechaHora < new Date()) newErrors.fechaHora = 'No puedes agendar en el pasado.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleGuardar = () => {
+    if (!validarFormulario()) return;
+
+    const visitaFormateada = {
+      ...visitData,
+      numeroPersonas: parseInt(visitData.personas),
+      numeroCasa: visitData.unidad,
+      nombreVisitante: visitData.visitante,
+      tipoVisita: visitData.tipo,
+      residenteId: user._id
+    };
+
     setModalVisible(true);
     setTimeout(() => {
       setModalVisible(false);
-      navigation.navigate('Visita', { visitData });
-    }, 2000);
+      navigation.navigate('Visita', { visitData: visitaFormateada });
+    }, 1500);
   };
 
   const onChangeDate = (event, selectedDate) => {
@@ -80,6 +140,7 @@ export default function GenerarVisita() {
               />
               <Feather name="calendar" size={20} color="#333" />
             </TouchableOpacity>
+            {errors.fecha && <Text style={styles.errorText}>{errors.fecha}</Text>}
           </View>
 
           <View style={styles.col}>
@@ -93,6 +154,7 @@ export default function GenerarVisita() {
               />
               <FontAwesome name="clock-o" size={20} color="#333" />
             </TouchableOpacity>
+            {errors.hora && <Text style={styles.errorText}>{errors.hora}</Text>}
           </View>
         </View>
 
@@ -101,6 +163,7 @@ export default function GenerarVisita() {
             mode="date"
             display="default"
             value={new Date()}
+            minimumDate={new Date()}
             onChange={onChangeDate}
           />
         )}
@@ -114,23 +177,25 @@ export default function GenerarVisita() {
           />
         )}
 
-        <Text style={styles.label}>
-          Número de personas: <Text style={{ color: 'red' }}>*</Text>
-        </Text>
-        <TextInput style={styles.input} keyboardType="numeric" onChangeText={text => handleChange('personas', text)} />
+        <Text style={styles.label}>Número de personas: *</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={visitData.personas}
+          onChangeText={text => handleChange('personas', text)}
+        />
+        {errors.personas && <Text style={styles.errorText}>{errors.personas}</Text>}
 
-        <Text style={styles.label}>
-          Descripción: <Text style={{ color: 'red' }}>*</Text>
-        </Text>
+        <Text style={styles.label}>Descripción: *</Text>
         <TextInput
           style={[styles.input, { height: 60 }]}
           multiline
+          value={visitData.descripcion}
           onChangeText={text => handleChange('descripcion', text)}
         />
+        {errors.descripcion && <Text style={styles.errorText}>{errors.descripcion}</Text>}
 
-        <Text style={styles.label}>
-          Tipo de visita: <Text style={{ color: 'red' }}>*</Text>
-        </Text>
+        <Text style={styles.label}>Tipo de visita: *</Text>
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.tipoButton, visitData.tipo === 'Familiar' && styles.tipoActivo]}
@@ -139,7 +204,6 @@ export default function GenerarVisita() {
             <Feather name="users" size={20} color="#333" style={{ marginRight: 6 }} />
             <Text style={styles.tipoText}>Familiar</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.tipoButton, visitData.tipo === 'Técnica' && styles.tipoActivo]}
             onPress={() => handleChange('tipo', 'Técnica')}
@@ -148,29 +212,54 @@ export default function GenerarVisita() {
             <Text style={styles.tipoText}>Técnica</Text>
           </TouchableOpacity>
         </View>
+        {errors.tipo && <Text style={styles.errorText}>{errors.tipo}</Text>}
 
         <Text style={styles.label}>Placas de vehículo:</Text>
-        <TextInput style={styles.input} placeholder="000-00-00" onChangeText={text => handleChange('placa', text)} />
+        <TextInput
+          style={styles.input}
+          placeholder="000-00-00"
+          value={visitData.placa}
+          onChangeText={text => handleChange('placa', text)}
+        />
 
-        <Text style={styles.label}>Contraseña:</Text>
-        <TextInput style={styles.input} secureTextEntry onChangeText={text => handleChange('contrasena', text)} />
+        <Text style={styles.label}>Contraseña: *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Palabra clave"
+          value={visitData.contrasena}
+          onChangeText={text => handleChange('contrasena', text)}
+        />
+        {errors.contrasena && <Text style={styles.errorText}>{errors.contrasena}</Text>}
 
-        <Text style={styles.label}>Verificar contraseña:</Text>
-        <TextInput style={styles.input} secureTextEntry onChangeText={text => handleChange('verificarContrasena', text)} />
+        <Text style={styles.label}>Verificar contraseña: *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Repetir palabra clave"
+          value={visitData.verificarContrasena}
+          onChangeText={text => handleChange('verificarContrasena', text)}
+        />
+        {errors.verificarContrasena && <Text style={styles.errorText}>{errors.verificarContrasena}</Text>}
 
-        <Text style={styles.label}>
-          Número de casa: <Text style={{ color: 'red' }}>*</Text>
-        </Text>
-        <TextInput style={styles.input} onChangeText={text => handleChange('unidad', text)} />
+        <Text style={styles.label}>Número de casa (automático):</Text>
+        <TextInput
+          style={styles.input}
+          value={visitData.unidad}
+          editable={false}
+        />
+        {errors.unidad && <Text style={styles.errorText}>{errors.unidad}</Text>}
 
-        <Text style={styles.label}>Nombre:</Text>
-        <TextInput style={styles.input} onChangeText={text => handleChange('visitante', text)} />
+        <Text style={styles.label}>Nombre del visitante: *</Text>
+        <TextInput
+          style={styles.input}
+          value={visitData.visitante}
+          onChangeText={text => handleChange('visitante', text)}
+        />
+        {errors.visitante && <Text style={styles.errorText}>{errors.visitante}</Text>}
 
         <TouchableOpacity style={styles.button} onPress={handleGuardar}>
           <Text style={styles.buttonText}>Crear visita</Text>
         </TouchableOpacity>
 
-        {/* MODAL DE CONFIRMACIÓN */}
         <Modal transparent={true} visible={modalVisible} animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -183,6 +272,7 @@ export default function GenerarVisita() {
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -289,5 +379,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
   },
 });

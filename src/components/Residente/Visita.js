@@ -1,36 +1,92 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet } from 'react-native';
+import React, { useContext } from 'react';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5, MaterialIcons, Feather, Entypo } from '@expo/vector-icons';
+import { UserContext } from '../../context/userContext';
 
 export default function Visita() {
   const navigation = useNavigation();
   const route = useRoute();
   const { visitData } = route.params;
+  const { user } = useContext(UserContext);
 
-  const handleEnviar = () => {
-    navigation.navigate('GenerarQR', { visitData });
+  const handleEnviar = async () => {
+    console.log('Datos de visita:', visitData);
+  
+    if (
+      !visitData ||
+      !visitData.fecha ||
+      !visitData.hora ||
+      !visitData.numeroPersonas ||
+      !visitData.descripcion ||
+      !visitData.tipoVisita ||
+      !visitData.numeroCasa ||
+      !visitData.nombreVisitante
+    ) {
+      Alert.alert('Error', 'Por favor, asegúrate de que todos los campos estén completos');
+      return;
+    }
+  
+    try {
+      // 🔄 Convertir "9/4/2025" => Date('2025-04-09')
+      const [day, month, year] = visitData.fecha.split('/');
+      const fechaISO = new Date(`${year}-${month}-${day}`);
+  
+      const response = await fetch('http://192.168.109.100:4000/api/visits/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fecha: fechaISO,
+          hora: visitData.hora,
+          numeroPersonas: visitData.numeroPersonas,
+          descripcion: visitData.descripcion,
+          tipoVisita: visitData.tipoVisita,
+          placasVehiculo: visitData.placa,
+          contrasena: visitData.contrasena,
+          numeroCasa: visitData.numeroCasa,
+          nombreVisitante: visitData.nombreVisitante,
+          residenteId: visitData.residenteId,
+        }),
+      });
+  
+      const result = await response.json();
+  
+      if (response.ok) {
+        console.log('✅ Visita guardada correctamente:', result);
+        navigation.navigate('GenerarQR', { visitData: result }); // <-- Aquí ahora es "result"
+      }
+      else {
+        console.error('❌ Error al guardar visita:', result);
+        Alert.alert('Error', 'No se pudo guardar la visita.');
+      }
+    } catch (error) {
+      console.error('❌ Error de conexión:', error);
+      Alert.alert('Error', 'No se pudo conectar con el servidor.');
+    }
   };
+  
+  
 
   return (
     <View style={styles.container}>
-      {/* TÍTULO */}
       <View style={styles.header}>
         <Text style={styles.headerText}>VISITA</Text>
       </View>
 
-      {/* SUBTÍTULO Y FECHA */}
       <Text style={styles.subtitle}>Tienes una visita para el día</Text>
-      <Text style={styles.date}>23 de Febrero del 2025 | 14:00 a 18:00 hrs</Text>
+      <Text style={styles.date}>
+        {visitData.fecha} | {visitData.hora}
+      </Text>
 
-      {/* ICONO GRANDE */}
-      <FontAwesome5 name="car" size={50} color="#333" style={{ marginVertical: 20 }} />
+      <FontAwesome5 name="car" size={50} color="#333" style={styles.icon} />
 
-      {/* DATOS DE LA VISITA */}
       <View style={styles.infoBox}>
         <View style={styles.infoRow}>
           <FontAwesome5 name="user-friends" size={20} color="#000" />
-          <Text style={styles.infoText}>{visitData.personas} Personas</Text>
+          <Text style={styles.infoText}>{visitData.numeroPersonas} Personas</Text>
         </View>
 
         <View style={styles.infoRow}>
@@ -40,7 +96,7 @@ export default function Visita() {
 
         <View style={styles.infoRow}>
           <Entypo name="location-pin" size={20} color="#000" />
-          <Text style={styles.infoText}>{visitData.motivo}</Text>
+          <Text style={styles.infoText}>{visitData.tipoVisita}</Text>
         </View>
 
         <View style={styles.infoRow}>
@@ -50,27 +106,23 @@ export default function Visita() {
 
         <View style={styles.infoRow}>
           <Entypo name="home" size={20} color="#000" />
-          <Text style={styles.infoText}>Unidad {visitData.unidad}</Text>
+          <Text style={styles.infoText}>Unidad {visitData.numeroCasa}</Text>
         </View>
       </View>
 
-      {/* CONTRASEÑA */}
       <View style={styles.passwordBox}>
         <Text style={styles.passwordLabel}>Tu contraseña de acceso es:</Text>
         <Text style={styles.passwordText}>{visitData.contrasena || 'Sin contraseña'}</Text>
       </View>
 
-      {/* NOMBRE DEL VISITANTE */}
-      <Text style={styles.name}>{visitData.visitante}</Text>
+      <Text style={styles.name}>{visitData.nombreVisitante}</Text>
 
-      {/* BOTÓN */}
       <TouchableOpacity style={styles.button} onPress={handleEnviar}>
         <Text style={styles.buttonText}>Enviar</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#C4BDA6',
@@ -99,6 +151,9 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 13,
     marginBottom: 10,
+  },
+  icon: {
+    marginVertical: 20,
   },
   infoBox: {
     alignSelf: 'stretch',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -7,159 +7,218 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { UserContext } from '../../context/userContext';
 
 export default function EditProfileScreen() {
+  const navigation = useNavigation();
+  const { user, login } = useContext(UserContext);
+
   const [formData, setFormData] = useState({
     nombre: '',
+    apellido: '',
+    username: '',
     telefono: '',
-    correo: '',
     direccion: '',
-    casa: '',
   });
 
+  useEffect(() => {
+    if (user) {
+      let direccionCompleta = 'No disponible';
+      if (user.house_id && user.house_id.address) {
+        const { street, city, zip } = user.house_id.address;
+        direccionCompleta = `${street}, ${city}, ${zip}`;
+      }
+
+      setFormData({
+        nombre: user.nombre || '',
+        apellido: user.apellido || '',
+        username: user.username || '',
+        telefono: user.phone || '',
+        direccion: direccionCompleta,
+      });
+    }
+  }, [user]);
+
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const checkUsernameUnique = async () => {
+    try {
+      const res = await fetch(`http://192.168.109.100:4000/api/users/check-username?username=${formData.username}`);
+      const data = await res.json();
+      return data.available || data._id === user._id;
+    } catch (err) {
+      console.error('❌ Error al validar username:', err);
+      return false;
+    }
+  };
+
+  const handleGuardar = async () => {
+    try {
+      const response = await fetch(`http://192.168.109.100:4000/api/users/update-profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user._id,
+          nombre: formData.nombre,
+          apellido: formData.apellido,
+          telefono: formData.telefono,
+          correo: formData.username,
+        }),
+      });
+  
+      const result = await response.json();
+  
+      if (response.ok && result.user) {
+        login(result.user); // actualizar contexto
+        Alert.alert('Éxito', 'Perfil actualizado correctamente');
+        navigation.goBack();
+      } else {
+        Alert.alert('Error', result.message || 'No se pudo actualizar el perfil');
+      }
+    } catch (e) {
+      console.error('❌ Error al actualizar perfil:', e);
+      Alert.alert('Error', 'Algo salió mal');
+    }
+  };
+  
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>EDITAR PERFIL</Text>
 
       <Image
-        source={require('../../images/Residente/user.png')}
+        source={require('../../images/Residente/residente.png')}
         style={styles.profileImage}
       />
-      <Text style={styles.editPhoto}>
-        <Feather name="edit" size={16} /> Editar foto
-      </Text>
+    
 
       <View style={styles.form}>
         <Text style={styles.label}>Nombre:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ejemplo"
           value={formData.nombre}
-          onChangeText={text => handleChange('nombre', text)}
+          onChangeText={(text) => handleChange('nombre', text)}
+        />
+
+        <Text style={styles.label}>Apellido:</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.apellido}
+          onChangeText={(text) => handleChange('apellido', text)}
+        />
+
+        <Text style={styles.label}>Usuario:</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.username}
+          onChangeText={(text) => handleChange('username', text)}
         />
 
         <Text style={styles.label}>Número de teléfono:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ejemplo"
           keyboardType="phone-pad"
           value={formData.telefono}
-          onChangeText={text => handleChange('telefono', text)}
+          onChangeText={(text) => handleChange('telefono', text)}
         />
 
-        <Text style={styles.label}>Correo:</Text>
+        <Text style={styles.label}>Dirección (no editable):</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ejemplo"
-          keyboardType="email-address"
-          value={formData.correo}
-          onChangeText={text => handleChange('correo', text)}
-        />
-
-        <Text style={styles.label}>Dirección:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ejemplo"
           value={formData.direccion}
-          onChangeText={text => handleChange('direccion', text)}
-        />
-
-        <Text style={styles.label}>Número de casa:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ejemplo"
-          value={formData.casa}
-          onChangeText={text => handleChange('casa', text)}
+          editable={false}
         />
       </View>
 
-      <TouchableOpacity style={styles.saveButton}>
+      <TouchableOpacity style={styles.saveButton} onPress={handleGuardar}>
         <Text style={styles.saveButtonText}>Guardar</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.cancelButton}>
+      <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
         <Text style={styles.cancelButtonText}>Cancelar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
+    padding: 20,
     backgroundColor: '#C4BDA6',
-    paddingHorizontal: 20,
-    paddingTop: 80, // AUMENTADO para bajar el contenido
     alignItems: 'center',
-    justifyContent: 'flex-start',
   },
   title: {
-    fontSize: 22,
-    color: 'white',
-    backgroundColor: '#7C4A2D',
-    paddingVertical: 12, // más alto
-    paddingHorizontal: 40,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 25,
-    borderRadius: 8,
+    color: '#4D3226',
+    marginBottom: 20,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#7C4A2D',
   },
   editPhoto: {
-    fontSize: 14,
     color: '#333',
-    marginBottom: 20,
+    marginBottom: 30,
+    fontSize: 14,
   },
   form: {
     width: '100%',
-    marginBottom: 30,
+    backgroundColor: '#EFE9DC',
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   label: {
+    fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 12,
-    color: '#000',
+    color: '#4D3226',
+    marginBottom: 4,
   },
   input: {
-    backgroundColor: '#EDEDED',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    height: 40,
-    marginTop: 4,
-  },
-  saveButton: {
-    backgroundColor: '#4D5637',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#bbb',
     borderRadius: 8,
-    elevation: 4,
-    width: '100%',
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 15,
     fontSize: 15,
   },
+  saveButton: {
+    backgroundColor: '#4BB543',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 10,
+    marginTop: 25,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 17,
+  },
   cancelButton: {
-    backgroundColor: '#DDD',
-    paddingVertical: 10,
-    borderRadius: 8,
     marginTop: 12,
-    width: '100%',
-    alignItems: 'center',
   },
   cancelButtonText: {
-    fontSize: 14,
-    color: 'black',
-    fontWeight: 'bold',
+    color: '#333',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   },
 });

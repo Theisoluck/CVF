@@ -1,24 +1,42 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 1️⃣ Crear contexto
 export const UserContext = createContext();
 
-// 2️⃣ Crear proveedor de contexto
+// ✅ Aquí se agrega el hook para poder usar useUser()
+export const useUser = () => React.useContext(UserContext);
+
 export const UserProvider = ({ children }) => {
-    const [user, setUser] = useState(null); // Aquí se guarda el usuario logueado
+  const [user, setUser] = useState(null);
 
-    const login = (userData) => {
-        // Guardamos info del usuario (puede venir de login real o simulado)
-        setUser(userData);
+  useEffect(() => {
+    const loadUser = async () => {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
     };
+    loadUser();
+  }, []);
 
-    const logout = () => {
-        setUser(null);
-    };
+  const login = async (userData) => {
+    setUser(userData);
+    await AsyncStorage.setItem('user', JSON.stringify(userData));
+  };
 
-    return (
-        <UserContext.Provider value={{ user, login, logout }}>
-            {children}
-        </UserContext.Provider>
-    );
+  const logout = async (navigation) => {
+    await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('token');
+    setUser(null);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  };
+
+  return (
+    <UserContext.Provider value={{ user, login, logout, userData: user }}>
+      {children}
+    </UserContext.Provider>
+  );
 };

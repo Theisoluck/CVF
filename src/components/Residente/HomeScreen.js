@@ -1,20 +1,18 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Image,
   TouchableOpacity,
-  Animated
+  Animated,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { UserContext } from '../../context/userContext';
-import { TouchableWithoutFeedback, Keyboard } from 'react-native';
-
-
+import { useUser } from '../../context/userContext'; // ✅ CORRECTO USO DE CONTEXTO
 
 export default function HomeResidente() {
-  const { logout } = useContext(UserContext);
+  const { user, logout } = useUser(); // ✅ accede al usuario correctamente
   const navigation = useNavigation();
   const [menuVisible, setMenuVisible] = useState(false);
   const menuAnimation = useState(new Animated.Value(-250))[0];
@@ -52,51 +50,52 @@ export default function HomeResidente() {
             <Image source={require('../../images/Residente/log-out.png')} style={styles.headerIcon} />
           </TouchableOpacity>
         </View>
-  
+
         {/* MENÚ LATERAL */}
         <Animated.View style={[styles.sideMenu, { left: menuAnimation }]}>
           <View style={styles.profileSection}>
-            <Image source={require('../../images/Residente/user.png')} style={styles.profileIcon} />
-            <Text style={styles.profileName}>Axel</Text>
+            <Image source={require('../../images/Residente/residente.png')} style={styles.profileIcon} />
+            <Text style={styles.profileName}>{user?.nombre || 'Residente'}</Text>
           </View>
-  
+
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ProfileScreen')}>
-            <Image source={require('../../images/Residente/user.png')} style={styles.menuIcon} />
+            <Image source={require('../../images/Residente/residente.png')} style={styles.menuIcon} />
             <Text style={styles.menuText}>Perfil</Text>
           </TouchableOpacity>
-  
+
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditProfileScreen')}>
             <Image source={require('../../images/Residente/edit.png')} style={styles.menuIcon} />
             <Text style={styles.menuText}>Editar perfil</Text>
           </TouchableOpacity>
-  
+
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('HistoryScreen')}>
             <Image source={require('../../images/Residente/visita.png')} style={styles.menuIcon} />
             <Text style={styles.menuText}>Visitas</Text>
           </TouchableOpacity>
         </Animated.View>
-  
-        {/* CONTENIDO CENTRAL CENTRADO */}
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+
+        {/* CONTENIDO PRINCIPAL */}
+        <View style={styles.mainContent}>
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GenerarVisita')}>
             <Text style={styles.buttonText}>Crear visita</Text>
           </TouchableOpacity>
-  
+
           <Image source={require('../../images/Residente/visita.png')} style={styles.icon} />
-  
+
           <TouchableOpacity style={styles.button}>
             <Text style={styles.buttonText}>Generar enlace</Text>
           </TouchableOpacity>
-  
+
           <Image source={require('../../images/Residente/enlace.png')} style={styles.icon} />
-  
+
           <Image source={require('../../images/Residente/Logo.png')} style={styles.logo} />
         </View>
       </View>
     </TouchableWithoutFeedback>
-  );  
+  );
 }
 
+// ✅ STYLES MANTENIDOS AQUÍ
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -104,7 +103,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerContainer: {
-    position: 'absolute',         // <- hace que flote sobre el resto
+    position: 'absolute',
     top: 0,
     width: '100%',
     paddingTop: 50,
@@ -115,9 +114,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     elevation: 4,
-    zIndex: 20,                   // <- asegura que esté encima del sideMenu
+    zIndex: 20,
   },
-  
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -133,23 +131,21 @@ const styles = StyleSheet.create({
     width: 220,
     height: '100%',
     backgroundColor: '#7C4A2D',
-    paddingTop: 90,  // <- este simula el espacio del header (ajústalo si tu header crece o disminuye)
+    paddingTop: 90,
     paddingHorizontal: 20,
     zIndex: 10,
     elevation: 5,
   },
-  
   profileSection: {
     alignItems: 'center',
     marginBottom: 30,
-    marginTop: 120 // 🔽 nuevo: baja el contenido
+    marginTop: 120,
   },
   profileIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40, // 🔵 redondea completamente
+    borderRadius: 40,
   },
-  
   profileName: {
     color: '#fff',
     fontSize: 16,
@@ -164,13 +160,19 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     marginRight: 10,
+    borderRadius: 12,
   },
-  menuIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12, // 🔵 círculo perfecto
+  menuText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
-  
+  mainContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 80,
+  },
   button: {
     marginTop: 25,
     backgroundColor: '#4D5637',
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 140,
     height: 140,
-    marginTop: 30,
+    marginTop: 40,
     resizeMode: 'contain',
   },
 });

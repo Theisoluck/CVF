@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../../context/userContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const { login } = useContext(UserContext);
@@ -14,23 +15,41 @@ export default function LoginScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalText, setModalText] = useState('');
 
-  const handleLogin = () => {
-    if (username === '' || password === '') {
-      showModal('Favor de rellenar todos los campos.');
-    } else if (
-      (username === 'Axel' && password === '12345678') ||
-      (username === 'Eduardo' && password === '87654321')
-    ) {
-      const tipoUsuario = username === 'Axel' ? 'RESIDENTE' : 'GUARDIA';
-      login({ username, tipoUsuario });
-    } else {
-      showModal('Credenciales incorrectas. FAVOR DE VERIFICAR SUS DATOS.');
-    }
-  };
-
   const showModal = (message) => {
     setModalText(message);
     setModalVisible(true);
+  };
+
+  const handleLogin = async () => {
+    if (!username || !password) {
+      return showModal('Favor de rellenar todos los campos.');
+    }
+
+    try {
+      const response = await fetch('http://192.168.109.100:4000/api/users/login-mobile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+      console.log('🔐 Respuesta backend:', data);
+
+      const { user, token } = data;
+
+      if (!response.ok || !user || !token) {
+        return showModal(data.message || 'Error en el inicio de sesión');
+      }
+
+      const userData = { ...user, token };
+      await AsyncStorage.setItem('token', token);
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+
+      login(userData);
+    } catch (error) {
+      console.error('❌ Error de conexión:', error);
+      showModal('No se pudo conectar con el servidor.');
+    }
   };
 
   return (
@@ -96,104 +115,48 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#C4BDA6',
-    },
-    keyboardContainer: {
-      flex: 1,
-    },
-    scroll: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      padding: 20,
-      paddingTop: 20, // ¡Ahora no tapa el header!
-    },
-    inner: {
-      marginBottom: 40,
-    },
-    label: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#000',
-      marginBottom: 5,
-    },
-    input: {
-      height: 40,
-      backgroundColor: '#fff',
-      borderRadius: 5,
-      paddingHorizontal: 10,
-      marginBottom: 15,
-    },
-    passwordContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#fff',
-      borderRadius: 5,
-      height: 40,
-      paddingHorizontal: 10,
-      marginBottom: 15,
-    },
-    passwordInput: {
-      flex: 1,
-    },
-    forgot: {
-      fontSize: 14,
-      color: '#000',
-      marginBottom: 20,
-    },
-    button: {
-      backgroundColor: '#4D5637',
-      borderRadius: 5,
-      paddingVertical: 12,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 2, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 2,
-      elevation: 3,
-    },
-    buttonText: {
-      color: '#fff',
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-    logo: {
-      width: '100%',
-      height: 220,
-      resizeMode: 'contain',
-      marginTop: 20,
-      alignSelf: 'center',
-    },
-    modalContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    modalContent: {
-      width: 300,
-      padding: 20,
-      backgroundColor: '#fff',
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    modalText: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 15,
-      textAlign: 'center',
-    },
-    modalButton: {
-      backgroundColor: '#4D5637',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 5,
-    },
-    modalButtonText: {
-      color: '#fff',
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-  });
-  
+  container: { flex: 1, backgroundColor: '#C4BDA6' },
+  keyboardContainer: { flex: 1 },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 20, paddingTop: 20 },
+  inner: { marginBottom: 40 },
+  label: { fontSize: 16, fontWeight: 'bold', color: '#000', marginBottom: 5 },
+  input: {
+    height: 40, backgroundColor: '#fff', borderRadius: 5,
+    paddingHorizontal: 10, marginBottom: 15
+  },
+  passwordContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', borderRadius: 5, height: 40,
+    paddingHorizontal: 10, marginBottom: 15
+  },
+  passwordInput: { flex: 1 },
+  forgot: { fontSize: 14, color: '#000', marginBottom: 20 },
+  button: {
+    backgroundColor: '#4D5637', borderRadius: 5,
+    paddingVertical: 12, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3, shadowRadius: 2, elevation: 3
+  },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  logo: {
+    width: '100%', height: 220, resizeMode: 'contain',
+    marginTop: 20, alignSelf: 'center'
+  },
+  modalContainer: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  modalContent: {
+    width: 300, padding: 20, backgroundColor: '#fff',
+    borderRadius: 10, alignItems: 'center'
+  },
+  modalText: {
+    fontSize: 16, fontWeight: 'bold',
+    marginBottom: 15, textAlign: 'center'
+  },
+  modalButton: {
+    backgroundColor: '#4D5637', paddingVertical: 10,
+    paddingHorizontal: 20, borderRadius: 5
+  },
+  modalButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+});

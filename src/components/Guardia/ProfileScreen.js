@@ -1,18 +1,41 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const stored = await AsyncStorage.getItem('user');
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
+    };
+    loadUser();
+  }, []);
+
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4D5637" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        {/* Imagen redonda del residente */}
+        {/* Imagen de perfil del guardia */}
         <Image
-          source={require('../../images/Residente/user.png')}
+          source={require('../../images/Guardia/guardia.png')}
           style={styles.profileImage}
         />
 
-        {/* Nombre */}
-        <Text style={styles.name}>José Alfredo Hernández</Text>
+        {/* Nombre completo */}
+        <Text style={styles.name}>
+          {user.nombre || 'Nombre'} {user.apellido || ''}
+        </Text>
 
         {/* Línea decorativa */}
         <View style={styles.separator} />
@@ -20,27 +43,21 @@ export default function ProfileScreen() {
         {/* Teléfono */}
         <View style={styles.infoItem}>
           <Text style={styles.label}>Número de teléfono:</Text>
-          <Text style={styles.value}>000-000-0000</Text>
+          <Text style={styles.value}>{user.phone || 'No disponible'}</Text>
         </View>
 
-        {/* Correo */}
+        {/* Fecha de nacimiento */}
         <View style={styles.infoItem}>
-          <Text style={styles.label}>Correo electrónico:</Text>
-          <Text style={styles.value}>residente@gmail.com</Text>
-        </View>
-
-        {/* Dirección */}
-        <View style={styles.infoItem}>
-          <Text style={styles.label}>Dirección:</Text>
+          <Text style={styles.label}>Fecha de nacimiento:</Text>
           <Text style={styles.value}>
-            Av. Plutarco B, Col. Golondrina,{"\n"}62986, Jiutepec, Morelos
+            {user.birthday ? user.birthday.split('T')[0] : 'Sin fecha'}
           </Text>
         </View>
 
-        {/* No. Casa */}
+        {/* Tipo de usuario */}
         <View style={styles.infoItem}>
-          <Text style={styles.label}>No. Casa:</Text>
-          <Text style={styles.value}>Unidad 40</Text>
+          <Text style={styles.label}>Tipo de usuario:</Text>
+          <Text style={styles.value}>{user.tipoUsuario}</Text>
         </View>
       </View>
     </View>
@@ -53,6 +70,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#C4BDA6',
   },
   card: {
     backgroundColor: '#EFEAD8',
